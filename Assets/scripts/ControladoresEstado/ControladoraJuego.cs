@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using System.Collections;
 using System.IO;
 using System;
@@ -32,17 +32,13 @@ public class ControladoraJuego
 	}
 
 	public InteractuableGenerico interactuablePulsado;
-	public GameObject humoTap;
-	public GameObject humoTapClone;
-	public ParticleSystem humoTapParticle;
+	public string camaraActivar;
 
 	#endregion
 
 	#region METODOS INICIALIZACION
 	public void Start()
 	{
-		humoTap = Resources.Load("Prefabs/Smoke_01", typeof(GameObject)) as GameObject;
-
 		pathConfig = Path.Combine(GameCenter.InstanceRef.USERPATH, "Config.xml");
 		pathJugador = Path.Combine(GameCenter.InstanceRef.USERPATH, "Jugador.xml");
 
@@ -242,13 +238,21 @@ public class ControladoraJuego
 
 	public void Inicializar_Interactuables()
 	{
-		foreach (InteractuableGenerico interactuable in GameCenter.InstanceRef.controladoraJuego.escenaActual.MostrarObjeto()) 
+		foreach (InteractuableGenerico interactuable in escenaActual.MostrarObjeto()) 
 		{
 			try 
 			{
 				GameObject.FindGameObjectWithTag(interactuable.Nombre).SetActive(interactuable.InteractuableActivo);
 			}
 			catch {}
+		}
+	}
+
+	public void Inicializar_Interactuables_SinZoom()
+	{
+		foreach (InteractuableSinZoomGenerico interactuable in escenaActual.MostrarObjetoSinZoomFiltrado()) 
+		{
+			GameObject.Find(interactuable.Nombre).GetComponent<ObjetoAnimacion>().Ejecutar_Animacion();
 		}
 	}
 	#endregion
@@ -430,39 +434,16 @@ public class ControladoraJuego
 	#region METODOS CAMARAS
 	public void Cambiar_Camara(string camara)
 	{
-		float sourceBSOTime = 0;
-		AudioClip sourceBSOAudio = null;
-		
-		if(this.camaraActiva != null)
-		{
-			sourceBSOTime = GameCenter.InstanceRef.controladoraSonidos.emisorBSO.time;
-			sourceBSOAudio = GameCenter.InstanceRef.controladoraSonidos.emisorBSO.clip;
-			GameCenter.InstanceRef.controladoraSonidos.emisorBSO.Stop();
+		if(camaraActiva != null)
+			DesactivarHijos(GameObject.Find(camaraActiva.EscenaHabilitar+"Padre"), false);
+		camaraActiva = this.escenaActual.Buscar_Camara (camara);
+		DesactivarHijos(GameObject.Find(camaraActiva.EscenaHabilitar+"Padre"), true);
+
+		if(cameraActiva != null)
 			cameraActiva.enabled = false;
-			if(!string.IsNullOrEmpty(camaraActiva.EscenaHabilitar))
-				DesactivarHijos(GameObject.Find(camaraActiva.EscenaHabilitar), false);
-		}
-		
 		cameraActiva = GameObject.Find (camara).GetComponent<Camera>();
 		cameraActiva.enabled = true;
 		GameCenter.InstanceRef.controladoraJugador.zoomCamaraRef = cameraActiva.GetComponent<ZoomCamara> ();
-		camaraActiva = this.escenaActual.Buscar_Camara (camara);
-		
-		if (sourceBSOAudio != null) 
-		{
-			GameCenter.InstanceRef.controladoraSonidos.emisorBSO.clip = sourceBSOAudio;
-			GameCenter.InstanceRef.controladoraSonidos.emisorBSO.time = sourceBSOTime;
-			GameCenter.InstanceRef.controladoraSonidos.emisorBSO.Play();
-			if(!string.IsNullOrEmpty(camaraActiva.EscenaHabilitar))
-			{
-				DesactivarHijos(GameObject.Find(camaraActiva.EscenaHabilitar+"Padre"), true);
-				Inicializar_Interactuables();
-			}
-		}
-
-		GameCenter.InstanceRef.controladoraJuego.jugadorActual.AddEscenaVisitada(cameraActiva.GetComponent<ZoomCamara>().escenaVistaCamara);
-		configuracionJuego.UltimaCamaraVisitada = camara;
-		configuracionJuego.UltimaEscenaVisitada = escenaActual.Escena;
 	}
 	
 	public void Desactivar_Camaras()
@@ -470,17 +451,19 @@ public class ControladoraJuego
 		foreach (CamaraEscenaBase nueva in this.escenaActual.ListaCamaras) 
 		{
 			GameObject.Find(nueva.Nombre).GetComponent<Camera>().enabled = false;
+			if(nueva.EscenaHabilitar != string.Empty)
+				try {DesactivarHijos(GameObject.Find(nueva.EscenaHabilitar+"Padre"), false);} catch {}
 		}
 	}
 	
 	public void DesactivarHijos(GameObject g, bool a) 
 	{
-		g.SetActive (a);
-		
-		foreach (Transform child in g.transform) {
-			DesactivarHijos(child.gameObject, a);
+		foreach (Transform child in g.transform) 
+		{
+			child.gameObject.SetActive(a);
 		}
 	}
+	
 	#endregion
 
 	#region METODOS INTERACTUABLES SIN ZOOM
@@ -503,6 +486,8 @@ public class ControladoraJuego
 
 			Light luz = objetoSinZoom.GetComponentInChildren<Light>();
 			luz.intensity = luz.intensity < 1 ? 1f : 0f;
+
+			return;
 		}
 
 		if (objetoSinZoom.name.Contains ("Fuego")) 
@@ -523,6 +508,21 @@ public class ControladoraJuego
 
 			Light luz = objetoSinZoom.GetComponentInChildren<Light>();
 			luz.intensity = luz.intensity < 1.5 ? 1.5f : 0f;
+
+			return;
+		}
+
+		if (objetoSinZoom.name.Contains ("BotellaSalon")) 
+		{
+			objetoSinZoom.GetComponent<ObjetoAnimacion>().Ejecutar_Animacion_Con_Sonido();
+			return;
+		}
+
+		if (objetoSinZoom.name.Contains ("LibroSalon") && escenaActual.Buscar_InteractuableSinZoom(objetoSinZoom.name).EjecutarAnimacion) 
+		{
+			objetoSinZoom.GetComponent<ObjetoAnimacion>().Ejecutar_Animacion_Con_Sonido();
+			escenaActual.Buscar_InteractuableSinZoom(objetoSinZoom.name).EjecutarAnimacion = false;
+			return;
 		}
 	}
 

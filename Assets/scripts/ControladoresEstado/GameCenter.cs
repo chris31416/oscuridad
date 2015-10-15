@@ -90,19 +90,21 @@ public class GameCenter : MonoBehaviour
 	
 	public void Inicializar_Escenario()
 	{
-		if (controladoraJuego.jugadorActual.EstadoJugador.Equals (EstadosJugador.enMenus) && controladoraJuego.jugadorActual.EscenasVisitadas.Count > 0) 
-			if (controladoraJuego.camaraActiva == null)
-				controladoraJuego.escenaActual.CamaraInicio = controladoraJuego.escenaActual.Buscar_Camara (controladoraJuego.configuracionJuego.UltimaCamaraVisitada);
-
 		controladoraJuego.Inicializar_Interactuables ();
+		controladoraJuego.Inicializar_Interactuables_SinZoom ();
 
 		//Desactivamos todas las ventanas
 		controladoraGUI.DesactivarGUI ();
 
 		//Activamos Camara
-		controladoraJuego.camaraActiva = null;
 		controladoraJuego.Desactivar_Camaras ();
-		controladoraJuego.Cambiar_Camara (controladoraJuego.escenaActual.CamaraInicio.Nombre);
+		if (controladoraJuego.camaraActivar != null) 
+		{
+			controladoraJuego.Cambiar_Camara (controladoraJuego.camaraActivar);
+			controladoraJuego.camaraActivar = null;
+		}
+		else
+			controladoraJuego.Cambiar_Camara (controladoraJuego.escenaActual.CamaraInicio.Nombre);
 
 		//Comenzamos BSO
 		controladoraSonidos.Lanzar_Bso (Application.loadedLevelName);
@@ -111,6 +113,7 @@ public class GameCenter : MonoBehaviour
 
 		controladoraJuego.configuracionJuego.UltimaEscenaVisitada = controladoraJuego.escenaActual.Escena;
 		controladoraJuego.configuracionJuego.UltimaCamaraVisitada = controladoraJuego.escenaActual.CamaraInicio.Nombre;
+		GameCenter.InstanceRef.controladoraJuego.jugadorActual.AddEscenaVisitada(controladoraJuego.escenaActual.Escena);
 	}
 
 	public void Salir()
